@@ -1,4 +1,4 @@
-name: Build APK for 山海经异变AI代练
+name: Build Android APK
 
 on:
   push:
@@ -8,37 +8,68 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-apk:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-22.04
+    
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-      
-      - name: Install Buildozer
-        run: |
-          python -m pip install --upgrade pip
-          pip install buildozer
-      
-      - name: Install Buildozer dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \n            build-essential \n            ccache \n            git \n            zlib1g-dev \n            libncurses5-dev \n            libgdbm-dev \n            libnss3-dev \n            libssl-dev \n            libreadline-dev \n            libffi-dev \n            libsqlite3-dev \n            libbz2-dev \n            liblzma-dev \n            zlib1g-dev \n            python3-dev \n            python3-pip \n            python3-venv \n            python3-setuptools \n            python3-wheel \n            python3-cryptography \n            libgl1-mesa-dev \n            libx11-dev \n            libxext-dev \n            libxrender-dev \n            libxrandr-dev \n            libxss-dev \n            libxtst-dev \n            libxv-dev \n            libxi-dev \n            libxkbcommon-dev \n            libxkbcommon-x11-dev \n            libwayland-dev \n            libxkbfile-dev \n            libfontconfig1-dev \n            libfreetype6-dev \n            libharfbuzz-dev \n            libfribidi-dev \n            libpng-dev \n            libjpeg-dev \n            libtiff-dev \n            libopenjp2-7-dev \n            libwebp-dev \n            liblcms2-dev \n            liblcms2-utils \n            libraqm-dev \n            libxcb1-dev \n            libxcb-icccm4-dev \n            libxcb-image0-dev \n            libxcb-keysyms1-dev \n            libxcb-randr0-dev \n            libxcb-render-util0-dev \n            libxcb-shape0-dev \n            libxcb-shm0-dev \n            libxcb-xfixes0-dev \n            libxcb-xinerama0-dev \n            libxcb-xkb-dev
-      
-      - name: Build APK
-        run: |
-          buildozer android debug
-        env:
-          P4A_ANDROID_API: 33
-          P4A_MIN_SDK_VERSION: 21
-          P4A_TARGET_SDK_VERSION: 33
-      
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: shanhaijing-ai-bot-apk
-          path: bin/shanhaijing_ai_bot-*-debug.apk
-          retention-days: 30
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y openjdk-17-jdk git curl unzip
+        sudo apt-get clean
+    
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v3
+      with:
+        sdk-version: '33'
+        build-tools-version: '33.0.2'
+        ndk-version: '25.1.8937393'
+        cmake-version: '3.22.1'
+    
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade pip
+        pip install buildozer cython==0.29.33 numpy==1.23.5 kivy==2.2.1
+    
+    - name: Configure Buildozer
+      run: |
+        echo "[app]" > buildozer.spec
+        echo "title = 山海经异变AI代练" >> buildozer.spec
+        echo "package.name = shanhaijing_ai_bot" >> buildozer.spec
+        echo "package.domain = com.shanhaijing" >> buildozer.spec
+        echo "source.dir = ./kivy_app" >> buildozer.spec
+        echo "source.include_exts = py,png,jpg,kv,atlas,txt,json" >> buildozer.spec
+        echo "version = 1.0.0" >> buildozer.spec
+        echo "requirements = python3,kivy,numpy,opencv,pillow,pyyaml,requests,loguru" >> buildozer.spec
+        echo "android.api = 33" >> buildozer.spec
+        echo "android.minapi = 21" >> buildozer.spec
+        echo "android.sdk = 33" >> buildozer.spec
+        echo "android.ndk = 25.1.8937393" >> buildozer.spec
+        echo "android.buildtools = 33.0.2" >> buildozer.spec
+        echo "android.archs = arm64-v8a,armeabi-v7a" >> buildozer.spec
+        echo "p4a.source_dir = ./.buildozer/android/platform/python-for-android" >> buildozer.spec
+        echo "p4a.bootstrap = sdl2" >> buildozer.spec
+        echo "p4a.local_recipes = " >> buildozer.spec
+        echo "p4a.hook = " >> buildozer.spec
+        echo "p4a.branch = master" >> buildozer.spec
+        echo "p4a.tag = " >> buildozer.spec
+        echo "p4a.commit = " >> buildozer.spec
+        echo "p4a.extra_args = --blacklist-requirements PIL --whitelist-requirements kivy" >> buildozer.spec
+    
+    - name: Build APK
+      run: |
+        buildozer -v android debug
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: shanhaijing_ai_bot.apk
+        path: bin/*.apk
+        retention-days: 7
