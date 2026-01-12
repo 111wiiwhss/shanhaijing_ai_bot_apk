@@ -12,92 +12,87 @@ jobs:
     runs-on: ubuntu-22.04
     
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
     
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
     
-    - name: Install system dependencies
+    - name: Build with pre-configured Buildozer Docker image
       run: |
-        sudo apt-get update
-        sudo apt-get install -y openjdk-17-jdk git curl unzip
-        sudo apt-get clean
+        # 使用预配置的Buildozer Docker镜像
+        docker run --rm -v $(pwd):/home/user/app --privileged kivymd/buildozer:stable bash -c "cd /home/user/app && buildozer -v android debug"
     
-    - name: Set up Android SDK
-      uses: android-actions/setup-android@v3
-      with:
-        sdk-version: '33'
-        build-tools-version: '33.0.2'
-        ndk-version: '25.1.8937393'
-        cmake-version: '3.22.1'
-    
-    - name: Install Python dependencies
+    - name: Check build results
       run: |
-        pip install --upgrade pip
-        pip install buildozer cython==0.29.33 numpy==1.23.5 kivy==2.2.1
+        echo "=== Build Results ==="
+        ls -la bin/ || echo "bin directory not found"
+        find . -name "*.apk" || echo "No APK files found"
     
-    - name: Configure Buildozer
-      run: |
-        echo "[app]" > buildozer.spec
-        echo "title = 山海经异变AI代练" >> buildozer.spec
-        echo "package.name = shanhaijing_ai_bot" >> buildozer.spec
-        echo "package.domain = com.shanhaijing" >> buildozer.spec
-        echo "source.dir = ./kivy_app" >> buildozer.spec
-        echo "source.include_exts = py,png,jpg,kv,atlas,txt,json" >> buildozer.spec
-        echo "version = 1.0.0" >> buildozer.spec
-        echo "requirements = python3,kivy,numpy,opencv,pillow,pyyaml,requests,loguru" >> buildozer.spec
-        echo "android.api = 33" >> buildozer.spec
-        echo "android.minapi = 21" >> buildozer.spec
-        echo "android.sdk = 33" >> buildozer.spec
-        echo "android.ndk = 25.1.8937393" >> buildozer.spec
-        echo "android.buildtools = 33.0.2" >> buildozer.spec
-        echo "android.archs = arm64-v8a,armeabi-v7a" >> buildozer.spec
-        echo "p4a.source_dir = ./.buildozer/android/platform/python-for-android" >> buildozer.spec
-        echo "p4a.bootstrap = sdl2" >> buildozer.spec
-        echo "p4a.local_recipes = " >> buildozer.spec
-        echo "p4a.hook = " >> buildozer.spec
-        echo "p4a.branch = master" >> buildozer.spec
-        echo "p4a.tag = " >> buildozer.spec
-        echo "p4a.commit = " >> buildozer.spec
-        echo "p4a.extra_args = --blacklist-requirements PIL --whitelist-requirements kivy" >> buildozer.spec
-    
-    - name: Build APK
-      run: |
-        echo "==================== BUILD ENVIRONMENT ===================="
-        echo "ANDROID_HOME: $ANDROID_HOME"
-        echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
-        echo "ANDROID_NDK_HOME: $ANDROID_NDK_HOME"
-        echo "PATH: $PATH"
-        echo "JAVA_HOME: $JAVA_HOME"
-        echo "==========================================================="
-        
-        # 安装buildozer所需的系统依赖
-        sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            ccache \
-            git \
-            zlib1g-dev \
-            libncurses5-dev \
-            libgdbm-dev \
-            libnss3-dev \
-            libssl-dev \
-            libreadline-dev \
-            libffi-dev \
-            libsqlite3-dev \
-            libbz2-dev \
-            liblzma-dev \
-            libgl1-mesa-dev \
-            libx11-dev \
-            libxext-dev
-        
-        # 运行buildozer构建APK，启用详细日志
-        buildozer -vvv android debug
-    
-    - name: Upload APK
+    - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
-        name: shanhaijing_ai_bot.apk
-        path: bin/*.apk
+        name: shanhaijing-ai-bot-apk
+        path: |
+          bin/*.apk
+          .buildozer/android/platform/python-for-android/logs/*.log
+        retention-days: 14
+        if-no-files-found: warn
+    
+    # 回退方案：使用简化的构建脚本
+    - name: Fallback build attempt
+      if: failure()
+      run: |
+        echo "=== Attempting fallback build ==="
+        
+        # 创建简化的构建脚本
+        cat > fallback_build.sh << 'EOF'
+        #!/bin/bash
+        
+        # 安装必要依赖
+        sudo apt-get update
+        sudo apt-get install -y python3-pip python3-venv git
+        
+        # 创建虚拟环境
+        python3 -m venv venv
+        source venv/bin/activate
+        
+        # 安装依赖
+        pip install --upgrade pip
+        pip install kivy==2.2.1 numpy==1.23.5 pillow==10.0.1
+        
+        # 安装Buildozer
+        pip install buildozer==1.5.0
+        
+        # 创建简化的spec文件
+        cat > fallback.spec << 'EOL'
+        [app]
+        title = 山海经异变AI代练
+        package.name = shanhaijing_ai_bot
+        package.domain = com.shanhaijing
+        source.dir = ./kivy_app
+        version = 1.0.0
+        requirements = python3,kivy,numpy
+        android.api = 31
+        android.minapi = 21
+        android.archs = arm64-v8a
+        p4a.bootstrap = sdl2
+        EOL
+        
+        # 运行构建
+        buildozer -v --spec fallback.spec android debug
+        EOF
+        
+        chmod +x fallback_build.sh
+        ./fallback_build.sh
+    
+    - name: Upload fallback build artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: fallback-build-output
+        path: |
+          bin/*.apk
+          *.log
         retention-days: 7
+        if-no-files-found: warn
