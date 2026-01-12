@@ -1,98 +1,57 @@
 name: Build Android APK
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch:  # 只允许手动触发，避免频繁构建
 
 jobs:
-  build:
+  build-with-docker:
     runs-on: ubuntu-22.04
+    timeout-minutes: 120  # 延长构建时间
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
     
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    
-    - name: Build with pre-configured Buildozer Docker image
+    - name: Clean previous builds
       run: |
-        # 使用预配置的Buildozer Docker镜像
-        docker run --rm -v $(pwd):/home/user/app --privileged kivymd/buildozer:stable bash -c "cd /home/user/app && buildozer -v android debug"
+        rm -rf bin/ .buildozer/ output/ *.log 2>/dev/null || true
+        mkdir -p bin .buildozer output
     
-    - name: Check build results
+    - name: Build APK using Docker
       run: |
-        echo "=== Build Results ==="
-        ls -la bin/ || echo "bin directory not found"
-        find . -name "*.apk" || echo "No APK files found"
+        echo "========================================"
+        echo "开始使用Docker构建APK..."
+        echo "========================================"
+        
+        # 使用官方Buildozer镜像构建
+        docker run --rm \
+          -v $(pwd):/app \
+          --privileged \
+          buildozer/builder:latest \
+          bash -c "cd /app && buildozer -v android debug"
+        
+        echo "========================================"
+        echo "Docker构建完成！"
+        echo "========================================"
     
-    - name: Upload APK artifact
+    - name: List build output
+      run: |
+        echo "=== 构建输出目录内容 ==="
+        ls -la ./
+        echo "\n=== bin目录内容 ==="
+        ls -la ./bin 2>/dev/null || echo "bin目录不存在"
+        echo "\n=== 查找APK文件 ==="
+        find . -name "*.apk" 2>/dev/null || echo "未找到APK文件"
+    
+    - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: shanhaijing-ai-bot-apk
+        name: shanhaijing-apk-build
         path: |
           bin/*.apk
-          .buildozer/android/platform/python-for-android/logs/*.log
-        retention-days: 14
-        if-no-files-found: warn
-    
-    # 回退方案：使用简化的构建脚本
-    - name: Fallback build attempt
-      if: failure()
-      run: |
-        echo "=== Attempting fallback build ==="
-        
-        # 创建简化的构建脚本
-        cat > fallback_build.sh << 'EOF'
-        #!/bin/bash
-        
-        # 安装必要依赖
-        sudo apt-get update
-        sudo apt-get install -y python3-pip python3-venv git
-        
-        # 创建虚拟环境
-        python3 -m venv venv
-        source venv/bin/activate
-        
-        # 安装依赖
-        pip install --upgrade pip
-        pip install kivy==2.2.1 numpy==1.23.5 pillow==10.0.1
-        
-        # 安装Buildozer
-        pip install buildozer==1.5.0
-        
-        # 创建简化的spec文件
-        cat > fallback.spec << 'EOL'
-        [app]
-        title = 山海经异变AI代练
-        package.name = shanhaijing_ai_bot
-        package.domain = com.shanhaijing
-        source.dir = ./kivy_app
-        version = 1.0.0
-        requirements = python3,kivy,numpy
-        android.api = 31
-        android.minapi = 21
-        android.archs = arm64-v8a
-        p4a.bootstrap = sdl2
-        EOL
-        
-        # 运行构建
-        buildozer -v --spec fallback.spec android debug
-        EOF
-        
-        chmod +x fallback_build.sh
-        ./fallback_build.sh
-    
-    - name: Upload fallback build artifacts
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: fallback-build-output
-        path: |
-          bin/*.apk
+          .buildozer/android/logs/*.log
           *.log
-        retention-days: 7
-        if-no-files-found: warn
+        retention-days: 30
+        if-no-files-found: error
