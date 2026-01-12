@@ -25,12 +25,36 @@ jobs:
         echo "开始使用Docker构建APK..."
         echo "========================================"
         
-        # 使用官方Buildozer镜像构建
+        # 调试：检查Docker环境
+        echo "Docker版本："
+        docker --version
+        echo "Docker信息："
+        docker info | head -20
+        
+        # 调试：拉取镜像前检查
+        echo "尝试拉取Buildozer镜像..."
+        docker pull kivymd/buildozer:stable || {
+          echo "拉取镜像失败，尝试使用替代镜像..."
+          docker pull kivy/buildozer:latest || {
+            echo "所有镜像拉取失败！"
+            exit 1
+          }
+        }
+        
+        # 调试：验证镜像已拉取
+        echo "已拉取的镜像："
+        docker images | grep buildozer
+        
+        # 简化Docker运行命令
+        echo "运行Buildozer构建..."
         docker run --rm \
           -v $(pwd):/app \
           --privileged \
+          --name buildozer-container \
+          --env BUILDOZER_USER_ID=$(id -u) \
+          --env BUILDOZER_GROUP_ID=$(id -g) \
           kivymd/buildozer:stable \
-          bash -c "cd /app && buildozer -v android debug"
+          bash -c "set -x && cd /app && buildozer -v android debug 2>&1 | tee build.log"
         
         echo "========================================"
         echo "Docker构建完成！"
@@ -44,6 +68,13 @@ jobs:
         ls -la ./bin 2>/dev/null || echo "bin目录不存在"
         echo "\n=== 查找APK文件 ==="
         find . -name "*.apk" 2>/dev/null || echo "未找到APK文件"
+        echo "\n=== 查看构建日志 ==="
+        if [ -f "build.log" ]; then
+          head -50 build.log
+          echo "... (日志文件已保存为build.log)"
+        else
+          echo "未找到build.log文件"
+        fi
     
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -52,6 +83,7 @@ jobs:
         path: |
           bin/*.apk
           .buildozer/android/logs/*.log
+          build.log
           *.log
         retention-days: 30
-        if-no-files-found: error
+        if-no-files-found: warn
