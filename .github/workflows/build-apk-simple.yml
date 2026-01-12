@@ -1,0 +1,96 @@
+name: Build Android APK (Simple)
+
+on:
+  workflow_dispatch:  # 只允许手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            git \
+            curl \
+            unzip \
+            openjdk-17-jdk \
+            libgl1-mesa-dev \
+            libx11-dev \
+            libxext-dev \
+            zlib1g-dev \
+            libncurses5-dev \
+            libgdbm-dev \
+            libnss3-dev \
+            libssl-dev \
+            libreadline-dev \
+            libffi-dev \
+            libsqlite3-dev \
+            libbz2-dev \
+            liblzma-dev
+        
+        # 安装Android SDK命令行工具
+        mkdir -p $HOME/android-sdk/cmdline-tools/latest
+        curl -o commandlinetools-linux.zip https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip
+        unzip commandlinetools-linux.zip -d $HOME/android-sdk/cmdline-tools
+        mv $HOME/android-sdk/cmdline-tools/cmdline-tools/* $HOME/android-sdk/cmdline-tools/latest/
+        rm commandlinetools-linux.zip
+        
+        # 设置环境变量
+        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools" >> $GITHUB_ENV
+    
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade pip
+        pip install buildozer==1.5.0 cython==0.29.33 numpy==1.23.5 kivy==2.2.1
+    
+    - name: Create simple buildozer spec
+      run: |
+        cat > buildozer.spec << 'EOF'
+        [app]
+        title = 山海经异变AI代练
+        package.name = shanhaijing_ai_bot
+        package.domain = com.shanhaijing
+        source.dir = ./kivy_app
+        version = 1.0.0
+        requirements = python3,kivy,numpy
+        android.api = 31
+        android.minapi = 21
+        android.archs = arm64-v8a
+        p4a.bootstrap = sdl2
+        EOF
+    
+    - name: Build APK
+      run: |
+        echo "开始构建APK..."
+        buildozer -v android debug 2>&1 | tee build.log
+    
+    - name: Check build results
+      run: |
+        echo "=== 构建结果 ==="
+        ls -la bin/ || echo "bin目录不存在"
+        find . -name "*.apk" || echo "未找到APK文件"
+        cat build.log | tail -50
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: shanhaijing-apk-simple-build
+        path: |
+          bin/*.apk
+          build.log
+          .buildozer/android/logs/*.log
+        retention-days: 30
