@@ -29,7 +29,7 @@ jobs:
         docker run --rm \
           -v $(pwd):/app \
           --privileged \
-          buildozer/builder:latest \
+          kivymd/buildozer:stable \
           bash -c "cd /app && buildozer -v android debug"
         
         echo "========================================"
