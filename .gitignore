@@ -1,0 +1,59 @@
+# Python
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+env/
+
+# Buildozer
+.buildozer/
+bin/
+
+# Kivy
+.kivy/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Config
+.env
+.env.local
+.env.*.local
+
+# Cache
+.cache/
+.temp/
+
+# Testing
+.coverage
+.pytest_cache/
+
+# Virtual environment
+venv/
+*.venv/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Android
+*.apk
+*.aab
+*.dex
+
+# iOS
+*.ipa
+*.app
