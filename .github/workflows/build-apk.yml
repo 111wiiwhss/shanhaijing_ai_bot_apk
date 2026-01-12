@@ -65,7 +65,35 @@ jobs:
     
     - name: Build APK
       run: |
-        buildozer -v android debug
+        echo "==================== BUILD ENVIRONMENT ===================="
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
+        echo "ANDROID_NDK_HOME: $ANDROID_NDK_HOME"
+        echo "PATH: $PATH"
+        echo "JAVA_HOME: $JAVA_HOME"
+        echo "==========================================================="
+        
+        # 安装buildozer所需的系统依赖
+        sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            ccache \
+            git \
+            zlib1g-dev \
+            libncurses5-dev \
+            libgdbm-dev \
+            libnss3-dev \
+            libssl-dev \
+            libreadline-dev \
+            libffi-dev \
+            libsqlite3-dev \
+            libbz2-dev \
+            liblzma-dev \
+            libgl1-mesa-dev \
+            libx11-dev \
+            libxext-dev
+        
+        # 运行buildozer构建APK，启用详细日志
+        buildozer -vvv android debug
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
