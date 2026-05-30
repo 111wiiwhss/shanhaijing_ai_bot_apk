@@ -1,89 +1,63 @@
-name: Build Android APK
+name: Build Android APK - Mecha Fighter
 
 on:
-  workflow_dispatch:  # 只允许手动触发，避免频繁构建
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - 'kivy_app/**'
+      - 'buildozer.spec'
+      - '.github/workflows/build-apk.yml'
 
 jobs:
   build-with-docker:
     runs-on: ubuntu-22.04
-    timeout-minutes: 120  # 延长构建时间
-    
+    timeout-minutes: 90
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         fetch-depth: 1
-    
+
     - name: Clean previous builds
       run: |
         rm -rf bin/ .buildozer/ output/ *.log 2>/dev/null || true
         mkdir -p bin .buildozer output
-    
+
     - name: Build APK using Docker
       run: |
         echo "========================================"
-        echo "开始使用Docker构建APK..."
+        echo "Building Mecha Fighter APK..."
         echo "========================================"
-        
-        # 调试：检查Docker环境
-        echo "Docker版本："
-        docker --version
-        echo "Docker信息："
-        docker info | head -20
-        
-        # 调试：拉取镜像前检查
-        echo "尝试拉取Buildozer镜像..."
-        docker pull kivymd/buildozer:stable || {
-          echo "拉取镜像失败，尝试使用替代镜像..."
-          docker pull kivy/buildozer:latest || {
-            echo "所有镜像拉取失败！"
-            exit 1
-          }
-        }
-        
-        # 调试：验证镜像已拉取
-        echo "已拉取的镜像："
-        docker images | grep buildozer
-        
-        # 简化Docker运行命令
-        echo "运行Buildozer构建..."
+
+        docker pull kivy/buildozer:latest || docker pull kivymd/buildozer:stable
+
         docker run --rm \
           -v $(pwd):/app \
           --privileged \
-          --name buildozer-container \
-          --env BUILDOZER_USER_ID=$(id -u) \
-          --env BUILDOZER_GROUP_ID=$(id -g) \
-          kivymd/buildozer:stable \
-          bash -c "set -x && cd /app && buildozer -v android debug 2>&1 | tee build.log"
-        
+          -e BUILDOZER_USER_ID=$(id -u) \
+          -e BUILDOZER_GROUP_ID=$(id -g) \
+          kivy/buildozer:latest \
+          bash -c "cd /app && buildozer -v android debug"
+
         echo "========================================"
-        echo "Docker构建完成！"
+        echo "Build complete!"
         echo "========================================"
-    
-    - name: List build output
+
+    - name: List artifacts
       run: |
-        echo "=== 构建输出目录内容 ==="
-        ls -la ./
-        echo "\n=== bin目录内容 ==="
-        ls -la ./bin 2>/dev/null || echo "bin目录不存在"
-        echo "\n=== 查找APK文件 ==="
-        find . -name "*.apk" 2>/dev/null || echo "未找到APK文件"
-        echo "\n=== 查看构建日志 ==="
-        if [ -f "build.log" ]; then
-          head -50 build.log
-          echo "... (日志文件已保存为build.log)"
-        else
-          echo "未找到build.log文件"
-        fi
-    
-    - name: Upload build artifacts
+        echo "=== APK files ==="
+        find . -name "*.apk" -ls 2>/dev/null || echo "No APK found"
+        echo "=== AAB files ==="
+        find . -name "*.aab" -ls 2>/dev/null || echo "No AAB found"
+
+    - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
-        name: shanhaijing-apk-build
+        name: mecha-fighter-apk
         path: |
           bin/*.apk
-          .buildozer/android/logs/*.log
-          build.log
-          *.log
+          bin/*.aab
         retention-days: 30
         if-no-files-found: warn
