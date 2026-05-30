@@ -52,7 +52,7 @@ requirements = python3,kivy
 #icon.filename = %(source.dir)s/data/icon.png
 
 # (str) Supported orientation (one of landscape, sensorLandscape, portrait or all)
-orientation = sensorLandscape
+orientation = landscape
 
 # (list) List of service to declare
 #services = NAME:ENTRYPOINT_TO_PY,NAME2:ENTRYPOINT2_TO_PY
@@ -102,8 +102,8 @@ android.minapi = 21
 # (int) Android SDK version to use
 android.sdk = 33
 
-# (str) Android NDK version to use
-android.ndk = 25.1.8937393
+# (str) Android NDK version to use (leave empty for p4a default)
+#android.ndk = 25.1.8937393
 
 # (int) Android NDK API to use. This is the minimum API your app will support, it should usually match android.minapi.
 android.ndk_api = 21
@@ -168,7 +168,7 @@ android.archs = arm64-v8a, armeabi-v7a
 #p4a.source_dir = 
 
 # (str) The directory in which python-for-android should look for your own build recipes (if any)
-#p4a.local_recipes = 
+p4a.local_recipes = .buildozer/android/local_recipes 
 
 # (str) Filename to the hook for p4a
 #p4a.hook = 
@@ -205,4 +205,4 @@ ios.python_version = 3
 log_level = 2
 
 # (int) Display warning if buildozer is run as root (0 = False, 1 = True)
-warn_on_root = 1
+warn_on_root = 0
