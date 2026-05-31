@@ -6,8 +6,8 @@ from kivy.core.window import Window
 from kivy.clock import Clock
 import math
 
-from .game.engine import GameWidget, GameState, GAME_W, GAME_H, SCREEN_W, SCREEN_H
-from .game.controls import ControlState, DEAD_ZONE
+from game.engine import GameWidget, GameState, GAME_W, GAME_H, SCREEN_W, SCREEN_H
+from game.controls import ControlState, DEAD_ZONE
 
 
 class TouchControls(FloatLayout):
